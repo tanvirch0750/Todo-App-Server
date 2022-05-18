@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 require("dotenv").config();
 const ObjectId = require("mongodb").ObjectId;
@@ -10,6 +11,25 @@ const port = process.env.PORT || 5000;
 //middleware
 app.use(cors());
 app.use(express.json());
+
+const verifyJwt = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log(authHeader);
+  if (!authHeader) {
+    res.status(401).send({ message: "Unauthorized access" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "forbidden access" });
+    }
+
+    req.decoded = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.r3o7j.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
@@ -24,10 +44,31 @@ const run = async () => {
     console.log("todo app mongo db server is running");
 
     const tasksCollection = client.db("todo-app").collection("tasks");
+    const userCollection = client.db("todo-app").collection("users");
 
     // Main route
     app.get("/", (req, res) => {
       res.send("todo app server is running");
+    });
+
+    // Users
+    //post - will use when login and signup
+    app.put("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+
+      const filter = { email };
+      const options = { upsert: true };
+
+      const updateDoc = {
+        $set: user,
+      };
+
+      const result = await userCollection.updateOne(filter, updateDoc, options);
+      const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN, {
+        expiresIn: "1d",
+      });
+      res.send({ result, token });
     });
 
     // post task
@@ -38,12 +79,18 @@ const run = async () => {
     });
 
     // get task
-    app.get("/tasks", async (req, res) => {
+    app.get("/tasks", verifyJwt, async (req, res) => {
       const email = req.query.email;
-      const query = { email: email };
-      const cursor = tasksCollection.find(query);
-      const tasks = await cursor.toArray();
-      return res.send(tasks);
+      const decodedEmail = req.decoded.email;
+      console.log(decodedEmail, email);
+      if (email === decodedEmail) {
+        const query = { email: email };
+        const cursor = tasksCollection.find(query);
+        const tasks = await cursor.toArray();
+        return res.send(tasks);
+      } else {
+        return res.status(403).send({ message: "forbidden access" });
+      }
     });
 
     // completed task
