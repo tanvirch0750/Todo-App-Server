@@ -23,9 +23,18 @@ const run = async () => {
     await client.connect();
     console.log("todo app mongo db server is running");
 
+    const tasksCollection = client.db("todo-app").collection("tasks");
+
     // Main route
     app.get("/", (req, res) => {
       res.send("todo app server is running");
+    });
+
+    // post task
+    app.post("/tasks", async (req, res) => {
+      const tasks = req.body;
+      const result = await tasksCollection.insertOne(tasks);
+      res.send(result);
     });
   } finally {
   }
