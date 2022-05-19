@@ -72,7 +72,7 @@ const run = async () => {
     });
 
     // post task
-    app.post("/tasks", async (req, res) => {
+    app.post("/tasks", verifyJwt, async (req, res) => {
       const tasks = req.body;
       const result = await tasksCollection.insertOne(tasks);
       res.send(result);
@@ -94,7 +94,7 @@ const run = async () => {
     });
 
     // completed task
-    app.put("/tasks/:id", async (req, res) => {
+    app.put("/tasks/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const updateDoc = {
@@ -105,7 +105,7 @@ const run = async () => {
     });
 
     // delete
-    app.delete("/tasks/:id", async (req, res) => {
+    app.delete("/tasks/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await tasksCollection.deleteOne(query);
